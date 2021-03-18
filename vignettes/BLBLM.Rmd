@@ -1,0 +1,97 @@
+---
+title: "BLBLM"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{BLBLM}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## IMPLEMENTATION
+For the edited implementation, I added parallelization into the functions blblm, sigma.blblm, coef.blblm, confint.blblm, and predict.blblm. To do this, I added a parameter called "parallelization", which is defaulted to FALSE and the functions will run as originally written. If the user chooses to set this to TRUE, then the function will run with parallelization. 
+To implement the parallelization, I first had to set up the workers, with plan(multiprocess, workers = 2). After that, I put an in statement in each function to check for the parallelization parameter value, and run future_map instead of map.
+
+## TESTING THE FUNCTIONS
+To test the new functions, the main goal was to make sure that running the fuction with and without parallelization would return the same results. To check this, I used testthat to make sure that changing the parallelization parameter would not affect the end results.
+
+## EXAMPLE OF RUNNING THE FUNCTIONS
+
+For a test run of these functions, we will be using the car dataset.
+```{r}
+library(furrr)
+library(blblm)
+library(tidyverse)
+library(future)
+library(parallel)
+start <- Sys.time()
+fit <- blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 10000)
+coef.blblm(fit)
+confint.blblm(fit)
+sigma.blblm(fit)
+predict.blblm(fit, new_data = data.frame(wt = c(2.5, 3), hp = c(150, 170)))
+predict.blblm(fit, new_data = data.frame(wt = c(2.5, 3), hp = c(150, 170)), confidence = TRUE)
+end <- Sys.time()
+print(c("Time: ", end-start))
+```
+Next, we will test it using parallelization for all of the functions
+
+```{r}
+library(furrr)
+library(future)
+start <- Sys.time()
+plan(multiprocess, workers = 2)
+options(future.rng.onMisuse = "ignore")
+fit <- blblm(mpg ~ wt * hp, parallelization=T,data = mtcars, m = 3, B = 10000)
+coef.blblm(fit)
+confint.blblm(fit, T)
+sigma.blblm(fit, T)
+predict.blblm(fit, parallelization=T,new_data = data.frame(wt = c(2.5, 3), hp = c(150, 170)))
+predict.blblm(fit, parallelization=T,new_data = data.frame(wt = c(2.5, 3), hp = c(150, 170)), confidence = TRUE)
+end <- Sys.time()
+print(c("Time: ", end-start))
+```
+
+Here, we can see that parallelization does make the package more efficient time wise.
+
+## BOOTSTRAPPING WITH LOGISTIC REGRESSION
+
+```{r}
+library(furrr)
+library(blblm)
+library(tidyverse)
+library(future)
+library(parallel)
+start <- Sys.time()
+fit <- blblg(Species ~ Petal.Length * Petal.Width, data = iris)
+coef.blblm(fit)
+confint.blblm(fit)
+sigma.blblm(fit)
+end <- Sys.time()
+print(c("Time: ", end-start))
+```
+
+With parallelzation:
+
+```{r}
+library(furrr)
+library(blblm)
+library(tidyverse)
+library(future)
+library(parallel)
+start <- Sys.time()
+fit <- blblg(Species ~ Petal.Length * Petal.Width,parallelization = T, data = iris)
+coef.blblm(fit)
+confint.blblm(fit,T)
+sigma.blblm(fit,T)
+end <- Sys.time()
+print(c("Time: ", end-start))
+```
+
+Here, we can see that parallelization also makes this more efficient.
